@@ -48,6 +48,7 @@ struct cset_converter
   convert_f func;
   iconv_t cd;
   int width;
+  const char* name;
 };
 
 #define BITS_PER_CPPCHAR_T (CHAR_BIT * sizeof (cppchar_t))

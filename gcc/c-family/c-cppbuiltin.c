@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"		/* For dwarf2out_do_cfi_asm.  */
 #include "common/common-target.h"
 #include "cppbuiltin.h"
+#include "../../libcpp/internal.h"
 
 #ifndef TARGET_OS_CPP_BUILTINS
 # define TARGET_OS_CPP_BUILTINS()
@@ -891,6 +892,12 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__GXX_RTTI");
 	  cpp_define (pfile, "__cpp_rtti=199711L");
 	}
+
+  builtin_define_with_value ("__GXX_PRESUMED_EXECUTION_ENCODING",
+    pfile->narrow_cset_desc.name, 1);
+  builtin_define_with_value ("__GXX_PRESUMED_WIDE_EXECUTION_ENCODING",
+    pfile->wide_cset_desc.name, 1);
+
 
       if (cxx_dialect >= cxx11)
         cpp_define (pfile, "__GXX_EXPERIMENTAL_CXX0X__");
