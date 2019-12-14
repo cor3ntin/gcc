@@ -59,6 +59,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     return __pos;
   }
 
+  #if __cplusplus > 201703L && __cpp_lib_concepts
+  template <typename _T, typename _Traits>
+  concept __string_view_has_compatible_traits = !requires { typename _T::traits_type; }
+    || same_as<typename _T::traits_type, _Traits>;
+  #endif
+
   // Helper for basic_string members.
   // NB: __sv_limit doesn't check for a bad __pos value.
   constexpr size_t
@@ -138,6 +144,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	basic_string_view(_It __first, _End __last)
 	: _M_len(__last - __first), _M_str(std::to_address(__first))
 	{ }
+
+      template <ranges::contiguous_range _R>
+    requires ranges::sized_range<_R>
+      && (!convertible_to<_R, const _CharT*>)
+      && same_as<ranges::range_value_t<_R>, _CharT>
+      && (!requires (remove_cvref_t<_R> & __r) {
+          __r.operator basic_string_view<_CharT, _Traits>();
+      })
+    && (__string_view_has_compatible_traits<remove_cvref_t<_R>, _Traits>)
+    constexpr
+    basic_string_view(_R && __range)
+    : _M_len(ranges::size(__range)), _M_str(std::to_address(ranges::begin(__range)))
+    { }
 #endif
 
       constexpr basic_string_view&
