@@ -27,12 +27,27 @@ constexpr std::basic_string_view s(std::begin(str), std::cend(str) - 1);
 static_assert( s == str );
 static_assert( s.data() == str );
 
+class deleted : public std::vector<char>
+{
+public:
+  deleted () : std::vector<char> ({'a', 'b', 'c'}) {};
+  operator std::string_view() const noexcept = delete;
+};
+
 void
 test01()
 {
   std::vector<char> v{'a', 'b', 'c'};
   std::basic_string_view s(v.begin(), v.end());
   VERIFY( s.data() == v.data() );
+
+
+  std::basic_string_view s2(v);
+  VERIFY( s2.data() == v.data() );
+
+  deleted d;
+  std::basic_string_view s3(d);
+  VERIFY( s3.data() == d.data() );
 }
 
 int

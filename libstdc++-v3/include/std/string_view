@@ -73,6 +73,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    return __testoff ? __off : __size - __pos;
   }
 
+#if __cplusplus > 201703L
+  template <typename T, typename Traits>
+  concept __has_compatible_traits = !requires { typename T::traits_type; } || same_as<typename T::traits_type, Traits>;
+#endif
+
   /**
    *  @class basic_string_view <string_view>
    *  @brief  A non-owning reference to a string.
@@ -143,6 +148,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	basic_string_view(_It __first, _End __last)
 	: _M_len(__last - __first), _M_str(std::to_address(__first))
 	{ }
+#endif
+
+#if __cplusplus > 201703L
+  template <ranges::contiguous_range R>
+    requires
+    ranges::sized_range<R>
+    && (!std::is_convertible_v<R, const _CharT*>)
+    && is_same_v<std::remove_cvref_t<ranges::range_reference_t<R>>, _CharT>
+    && (!requires (std::remove_cvref_t<R> & d) {
+      d.operator basic_string_view<_CharT, _Traits>();
+    })
+    && __has_compatible_traits<R, _Traits>
+
+    constexpr basic_string_view(R&& r)
+      : _M_str(std::ranges::data(r)), _M_len(std::ranges::size(r)) {}
 #endif
 
       constexpr basic_string_view&
@@ -475,6 +495,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #if __cplusplus > 201703L && __cpp_lib_concepts && __cpp_deduction_guides
   template<contiguous_iterator _It, sized_sentinel_for<_It> _End>
     basic_string_view(_It, _End) -> basic_string_view<iter_value_t<_It>>;
+
+  template<class R>
+    basic_string_view(R&&) -> basic_string_view<remove_reference_t<ranges::range_reference_t<R>>>;
 #endif
 
   // [string.view.comparison], non-member basic_string_view comparison function
