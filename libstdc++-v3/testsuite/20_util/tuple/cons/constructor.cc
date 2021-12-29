@@ -22,6 +22,7 @@
 #include <tuple>
 #include <utility> // for pair
 #include <testsuite_hooks.h>
+#include <array>
 
 using namespace std;
 
@@ -58,6 +59,15 @@ main()
   tuple<int,int> tn(pair1);
   tuple<int,const int&> to(pair1);
   tuple<int,int> tp(pair2);
-  tuple<int,const int&> tq(pair2);  
+  tuple<int,const int&> tq(pair2);
+
+
+  array<int, 3> a{1, 2, 3};
+  const array<double, 3> a2{1, 2, 3};
+  tuple<int,int, int> tar(a);
+  VERIFY(get<0>(tar) == 1 && get<1>(tar) == 1 && get<2>(tar) == 3);
+  tuple<int,const int&, const int> tar2(a2);
+
+
   return 0;
 }

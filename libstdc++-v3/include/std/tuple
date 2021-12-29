@@ -27,7 +27,7 @@
  */
 
 #ifndef _GLIBCXX_TUPLE
-#define _GLIBCXX_TUPLE 1
+#define _GLIBCXX_TUPLE #include <type_traits>
 
 #pragma GCC system_header
 
@@ -36,6 +36,7 @@
 #else
 
 #include <bits/stl_pair.h>		// for std::pair
+#include <bits/stl_tuple_protocol.h>
 #include <bits/uses_allocator.h>	// for std::allocator_arg_t
 #include <bits/utility.h>		// for std::get, std::tuple_size etc.
 #include <bits/invoke.h>		// for std::__invoke
@@ -755,6 +756,54 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       constexpr tuple(tuple&&) = default;
 
+#if __cplusplus >= 202000
+
+      template <typename A, typename B>
+      struct __is_implicitly_constructible_element {
+        static constexpr bool value = is_constructible_v<A, B> && is_convertible_v<B, A>;
+      };
+      struct __tuple_ctr_tag{};
+
+      template <typename _T, typename _U>
+      static constexpr bool __tuple_convertible_element =
+        std::is_convertible_v<const tuple<_U>&, _T>
+        || std::is_constructible_v<_T, const tuple<_U>&>
+        || std::is_same_v<_T, _U>;
+
+      template <typename _T, typename _U = std::remove_cvref_t<_T>>
+      static constexpr bool __tuple_convertible = [] {
+        if constexpr(std::tuple_size_v<_U> == 1) {
+          return __tuple_convertible_element<_Elements..., std::tuple_element_t<0, _U>>;
+        }
+        return false;
+      }();
+
+      template <__tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
+      requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...>)
+      explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
+      constexpr	tuple(const _T& __in)
+      noexcept(__all_tuple_elements<is_nothrow_constructible, _T, _Elements...>)
+      : tuple(__tuple_ctr_tag{}, __in, std::make_index_sequence<std::tuple_size_v<_U>>()) {}
+
+      template <__tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
+      requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...>)
+      explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
+      constexpr	tuple(_T&& __in)
+      noexcept(__all_tuple_elements<is_nothrow_constructible, _T, _Elements...>)
+      : tuple(__tuple_ctr_tag{}, std::forward<_T>(__in), std::make_index_sequence<std::tuple_size_v<_U>>()) {}
+
+private:
+      template <typename _T, std::size_t... _I>
+      constexpr	tuple(__tuple_ctr_tag, const _T& __in, std::index_sequence<_I...>)
+      : _Inherited(get<_I>(__in)...) {	}
+
+      template <typename _T, std::size_t... _I>
+      constexpr	tuple(__tuple_ctr_tag, _T&& __in, std::index_sequence<_I...>)
+      : _Inherited(get<_I>(std::forward<_T>(__in))...) {	}
+
+public:
+
+#else
       template<typename... _UElements,
 	       bool _Valid = (sizeof...(_Elements) == sizeof...(_UElements))
 			   && !__use_other_ctor<const tuple<_UElements...>&>(),
@@ -792,6 +841,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	tuple(tuple<_UElements...>&& __in)
 	noexcept(__nothrow_constructible<_UElements...>())
 	: _Inherited(static_cast<_Tuple_impl<0, _UElements...>&&>(__in)) { }
+
+#endif
 
       // Allocator-extended constructors.
 
@@ -845,6 +896,32 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	tuple(allocator_arg_t __tag, const _Alloc& __a, tuple&& __in)
 	: _Inherited(__tag, __a, static_cast<_Inherited&&>(__in)) { }
 
+
+#if __cplusplus >= 202000
+      struct __tuple_ctr_tag_alloc{};
+      template <typename _Alloc, __tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
+      requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...> )
+      explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
+      constexpr	tuple(allocator_arg_t __tag, const _Alloc& __a, const _T& __in)
+      : tuple(__tuple_ctr_tag_alloc{}, __a, __in, std::make_index_sequence<std::tuple_size_v<_U>>()) {}
+
+      template <typename _Alloc, __tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
+      requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...>)
+      explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
+      constexpr	tuple(allocator_arg_t __tag, const _Alloc& __a, _T&& __in)
+      : tuple(__tuple_ctr_tag_alloc{}, __a, std::forward<_T>(__in), std::make_index_sequence<std::tuple_size_v<_U>>()) {}
+
+private:
+      template <typename _Alloc, typename _T, std::size_t... _I>
+      constexpr	tuple(__tuple_ctr_tag_alloc, const _Alloc& __a, const _T& __in, std::index_sequence<_I...>)
+      : _Inherited(allocator_arg, __a, get<_I>(__in)...) {	}
+
+      template <typename _Alloc, typename _T, std::size_t... _I>
+      constexpr	tuple(__tuple_ctr_tag_alloc, const _Alloc& __a, _T&& __in, std::index_sequence<_I...>)
+      : _Inherited(allocator_arg, __a, get<_I>(std::forward<_T>(__in))...) {	}
+
+public:
+#else
       template<typename _Alloc, typename... _UElements,
 	       bool _Valid = (sizeof...(_Elements) == sizeof...(_UElements))
 			     && !__use_other_ctor<const tuple<_UElements...>&>(),
@@ -891,6 +968,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	             static_cast<_Tuple_impl<0, _UElements...>&&>(__in))
 	{ }
 
+#endif
+
       // tuple assignment
 
       _GLIBCXX20_CONSTEXPR
@@ -914,6 +993,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	this->_M_assign(std::move(__in));
 	return *this;
       }
+
 
       template<typename... _UElements>
 	_GLIBCXX20_CONSTEXPR
@@ -974,6 +1054,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_GLIBCXX20_CONSTEXPR
 	tuple(allocator_arg_t, const _Alloc&, const tuple&) noexcept { }
     };
+
+#if __cplusplus < 202000
 
   /// Partial specialization, 2-element tuple.
   /// Includes construction and assignment from a pair.
@@ -1334,6 +1416,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { _Inherited::_M_swap(__in); }
     };
 
+#endif
 
   /// class tuple_size
   template<typename... _Elements>
@@ -1461,6 +1544,36 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 #endif
 
+
+#if __cplusplus > 202000
+
+template <typename... __Args, __tuple_like_of_size<sizeof...(__Args)> __T>
+constexpr bool operator==(const std::tuple<__Args...> & a, const __T& b) {
+    return [&]<std::size_t... __I>(index_sequence<__I...>)
+    {
+        return  ((std::get<__I>(a) == std::get<__I>(b)) && ...);
+    }
+    (std::make_index_sequence<sizeof...(__Args)>{});
+}
+
+template <typename... __Args, __tuple_like __T>
+constexpr auto operator<=>(const std::tuple<__Args...> & a, const __T& b) {
+    const auto ret = [&]<std::size_t... __I>(index_sequence<__I...>){
+        using __ret = common_comparison_category_t<__detail::__synth3way_t<__Args, std::tuple_element_t<__I, __T>>...>;
+        __ret c = __ret::equivalent;
+        return  ((c = __detail::__synth3way(std::get<__I>(a), std::get<__I>(b)), c != 0) || ...), c;
+    }
+    (std::make_index_sequence<std::min(sizeof...(__Args), std::tuple_size_v<__T>)>{});
+    if (ret != 0 || sizeof...(__Args) == std::tuple_size_v<__T>) {
+        return ret;
+    }
+    else {
+        return decltype(ret)(sizeof...(__Args) <=> std::tuple_size_v<__T>);
+    }
+}
+
+#else
+
   // This class performs the comparison operations on tuples
   template<typename _Tp, typename _Up, size_t __i, size_t __size>
     struct __tuple_compare
@@ -1490,6 +1603,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       static constexpr bool
       __less(const _Tp&, const _Up&) { return false; }
     };
+
 
   template<typename... _TElements, typename... _UElements>
     constexpr bool
@@ -1571,6 +1685,52 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { return !(__t < __u); }
 #endif // three_way_comparison
 
+#endif // __cplusplus >= 201402L
+
+#if __cplusplus >= 202000
+
+template< class T, template<class...> class Primary >
+inline constexpr bool __is_specialization_of = false;
+
+template< template<class...> class Primary, class... Args>
+inline constexpr bool __is_specialization_of< Primary<Args...>, Primary> = true;
+
+template<class TTuple, class UTuple, template<class> class TQual, template<class> class UQual, typename __sequence>
+struct __tuple_common_reference;
+
+template<class TTuple, class UTuple, typename __sequence>
+struct __tuple_common_type;
+
+template<class TTuple, class UTuple, template<class> class TQual, template<class> class UQual, std::size_t...I>
+requires requires { typename tuple<common_reference_t<TQual<tuple_element_t<I, TTuple>>, UQual<tuple_element_t<I, UTuple>>>...>; }
+struct __tuple_common_reference<TTuple, UTuple, TQual, UQual, std::index_sequence<I...>> {
+    using type = tuple<
+        common_reference_t<
+            TQual<std::tuple_element_t<I, TTuple>>,
+            UQual<std::tuple_element_t<I, UTuple>>
+        >...>;
+};
+
+template<class TTuple, class UTuple, std::size_t...I>
+requires requires { typename tuple<common_type_t<tuple_element_t<I, TTuple>, tuple_element_t<I, UTuple>>...>; }
+struct __tuple_common_type<TTuple, UTuple, std::index_sequence<I...>> {
+    using type = tuple<common_type_t<tuple_element_t<I, TTuple>, tuple_element_t<I, UTuple>>...>;
+};
+
+
+template<__tuple_like TTuple, __tuple_like UTuple>
+requires (__is_specialization_of<TTuple, std::tuple> || __is_specialization_of<UTuple, std::tuple>) && (std::tuple_size_v<TTuple> == std::tuple_size_v<UTuple>)
+struct common_type<TTuple, UTuple> : __tuple_common_type<TTuple, UTuple, std::make_index_sequence<std::tuple_size_v<TTuple>>>{};
+
+
+template<__tuple_like TTuple, __tuple_like UTuple, template<class> class TQual, template<class> class UQual>
+requires (__is_specialization_of<TTuple, std::tuple> || __is_specialization_of<UTuple, std::tuple>) && (std::tuple_size_v<TTuple> == std::tuple_size_v<UTuple>)
+struct basic_common_reference<TTuple, UTuple, TQual, UQual> :
+    __tuple_common_reference<TTuple,  UTuple, TQual, UQual, std::make_index_sequence<std::tuple_size_v<TTuple>>>{};
+
+#endif
+
+
   // NB: DR 705.
   template<typename... _Elements>
     constexpr tuple<typename __decay_and_strip<_Elements>::__type...>
@@ -1610,6 +1770,40 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     constexpr const _Tp&&
     get(const array<_Tp, _Nm>&&) noexcept;
 
+
+#if __cplusplus >= 202000
+
+
+inline auto tuple_cat() {
+    return std::tuple<>{};
+}
+template <__tuple_like T>
+auto tuple_cat(T&& t) {
+    if constexpr(__is_specialization_of<T, std::tuple>) {
+        return t;
+    }
+    else {
+        return [&]<std::size_t... I>(std::index_sequence<I...>)
+        -> std::tuple<std::tuple_element_t<I, T>...> {
+            return {get<I, T>(std::forward<T>(t))...};
+        }(std::make_index_sequence<std::tuple_size_v<T>>{});
+    }
+}
+
+template <__tuple_like T, __tuple_like U, __tuple_like... Other>
+auto tuple_cat(T&& t, U&& u, Other&&... other) {
+    auto head = [&]<std::size_t... I, std::size_t... J>(std::index_sequence<I...>, std::index_sequence<J...>) {
+        return std::tuple<std::tuple_element_t<I, T>..., std::tuple_element_t<J, U>...> {std::get<I>(std::forward<T>(t))..., std::get<J>(std::forward<U>(u))...};
+    }(std::make_index_sequence<std::tuple_size_v<T>>{}, std::make_index_sequence<std::tuple_size_v<U>>{});
+    if constexpr(sizeof...(Other)) {
+        return tuple_cat(std::move(head), std::forward<Other>(other)...);
+    }
+    else {
+        return head;
+    }
+}
+
+#else
 
   template<size_t, typename, typename, size_t>
     struct __make_tuple_impl;
@@ -1735,6 +1929,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef __tuple_concater<__ret, __idx, _Tpls...> __concater;
       return __concater::_S_do(std::forward<_Tpls>(__tpls)...);
     }
+
+#endif
 
   // _GLIBCXX_RESOLVE_LIB_DEFECTS
   // 2301. Why is tie not constexpr?

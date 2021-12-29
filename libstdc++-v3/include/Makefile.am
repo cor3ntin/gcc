@@ -224,6 +224,7 @@ bits_headers = \
 	${bits_srcdir}/stl_stack.h \
 	${bits_srcdir}/stl_tempbuf.h \
 	${bits_srcdir}/stl_tree.h \
+	${bits_srcdir}/stl_tuple_protocol.h \
 	${bits_srcdir}/stl_uninitialized.h \
 	${bits_srcdir}/stl_vector.h \
 	${bits_srcdir}/stream_iterator.h \

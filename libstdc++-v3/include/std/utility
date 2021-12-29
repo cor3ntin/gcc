@@ -66,6 +66,7 @@
 
 #include <bits/c++config.h>
 #include <bits/stl_relops.h>
+#include <bits/stl_tuple_protocol.h>
 #include <bits/stl_pair.h>
 
 #if __cplusplus >= 201103L
