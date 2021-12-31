@@ -195,6 +195,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    std::move(__pr).second));
     }
 
+  template<_Std_pair _Tp, typename _Alloc, __pair_like Pair>
+    constexpr auto
+    uses_allocator_construction_args(const _Alloc& __a,
+				     Pair&& __pr) noexcept
+    {
+      return std::make_tuple(piecewise_construct,
+	  std::uses_allocator_construction_args<tuple_element_t<0, std::remove_cvref_t<Pair>>>(__a,
+	    std::get<0>(std::forward<Pair>(__pr))),
+	  std::uses_allocator_construction_args<tuple_element_t<1, std::remove_cvref_t<Pair>>>(__a,
+	    std::get<1>(std::forward<Pair>(__pr))));
+    }
+
   template<typename _Tp, typename _Alloc, typename... _Args>
     inline _Tp
     make_obj_using_allocator(const _Alloc& __a, _Args&&... __args)

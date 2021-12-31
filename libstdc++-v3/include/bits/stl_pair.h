@@ -66,6 +66,8 @@
 # define __cpp_lib_constexpr_utility 201811L
 #endif
 
+#include <bits/stl_tuple_protocol.h>
+
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -314,6 +316,54 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  second(std::forward<_U2>(__p.second))
 	{ }
 
+#if __cplusplus >= 202000
+
+/*template<__pair_like P>
+constexpr explicit(!_S_convertible<std::tuple_element_t<0, P>&, std::tuple_element_t<1, P>&>())
+pair(P& p)
+noexcept(_S_nothrow_constructible<decltype(std::get<0>(declval<P&>())), decltype(std::get<1>(declval<P&>()))>())
+requires (_S_constructible<decltype(std::get<0>(declval<P&>())), decltype(std::get<1>(declval<P&>()))>())
+	: first(std::get<0>(p)), second(std::get<1>(p))
+{}
+
+template<__pair_like P>
+constexpr explicit(!_S_convertible<const std::tuple_element_t<0, P>&,
+                                  const std::tuple_element_t<1, P>&>())
+pair(const P& p)
+noexcept(_S_nothrow_constructible<decltype(std::get<0>(declval<const P&>())), decltype(std::get<1>(declval<const P&>()))>())
+requires (_S_constructible<decltype(std::get<0>(declval<const P&>())), decltype(std::get<1>(declval<const P&>()))>())
+	: first(std::get<0>(p)), second(std::get<1>(p))
+{}
+*/
+#define __FWD(x) static_cast<decltype((x))&&>((x))
+
+//
+
+template<__pair_like P>
+constexpr explicit(!_S_convertible<std::tuple_element_t<0, P>&&,
+                                   std::tuple_element_t<1, P>&&>())
+pair(P&& p)
+noexcept(_S_nothrow_constructible<decltype(std::get<0>(__FWD(declval<P&&>()))), decltype(std::get<1>(__FWD(declval<P&&>())))>())
+requires (_S_constructible<decltype(std::get<0>(__FWD(declval<P&&>()))), decltype(std::get<1>(__FWD(declval<P&&>())))>())
+	: first(std::get<0>(__FWD(p))), second(std::get<1>(__FWD(p)))
+{}
+
+/*
+
+template<__pair_like P>
+constexpr explicit(!_S_convertible<const std::tuple_element_t<0, P>&&,
+                                   const std::tuple_element_t<1, P>&&>())
+pair(const P&& p)
+noexcept(_S_nothrow_constructible<decltype(std::get<0>(__FWD(declval<const P&&>()))),
+                                  decltype(std::get<1>(__FWD(declval<const P&&>())))>())
+requires (std::is_rvalue_reference_v<P> &&
+_S_constructible<decltype(std::get<0>(__FWD(declval<const P&&>()))),
+                 decltype(std::get<1>(__FWD(declval<const P&&>())))>())
+	: first(std::get<0>(__FWD(p))), second(std::get<1>(__FWD(p)))
+{}
+*/
+#endif
+
   private:
       /// @cond undocumented
       template<typename _U1, typename _U2>
@@ -384,6 +434,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  second = std::forward<_U2>(__p.second);
 	  return *this;
 	}
+
+#if __cplusplus >= 202000
+  template<__pair_like _T>
+	constexpr pair&
+	operator=(_T&& __t)
+	noexcept(_S_nothrow_assignable<decltype(std::get<0>(__FWD(__t))), decltype(std::get<1>(__FWD(__t)))>())
+	requires (_S_assignable<decltype(std::get<0>(__FWD(__t))), decltype(std::get<1>(__FWD(__t)))>())
+	{
+	  first  = std::get<0>(std::forward<_T>(__t));
+	  second = std::get<1>(std::forward<_T>(__t));
+	  return *this;
+	}
+
+#endif
+
 #else
       // C++11/14/17 implementation using enable_if, partially constexpr.
 
@@ -626,7 +691,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// @relates pair @{
 
 #if __cpp_deduction_guides >= 201606
-  template<typename _T1, typename _T2> pair(_T1, _T2) -> pair<_T1, _T2>;
+template<typename T1, typename T2>
+pair(T1, T2) -> pair<T1, T2>;
+#endif
+
+#if __cplusplus >= 202000
+
+template<class T1, class T2, __pair_like Pair>
+requires same_as<T1, tuple_element_t<0, Pair>> && same_as<T2, tuple_element_t<1, Pair>>
+constexpr bool operator==(const pair<T1, T2>& x, const Pair& y) {
+  return x.first == std::get<0>(y) && x.second == get<1>(y);
+}
+
+template<class T1, class T2, __pair_like Pair>
+requires same_as<T1, tuple_element_t<0, Pair>> && same_as<T2, tuple_element_t<1, Pair>>
+constexpr common_comparison_category_t<__detail::__synth3way_t<T1>, __detail::__synth3way_t<T2>>
+operator<=>(const pair<T1, T2>& x, const Pair& y) {
+  if (auto c = __detail::__synth3way(x.first, std::get<0>(y)); c != 0) return c;
+  return __detail::__synth3way(x.second, std::get<1>(y));
+}
+
 #endif
 
   /// Two pairs of the same type are equal iff their members are equal.
@@ -683,6 +767,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator>=(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
     { return !(__x < __y); }
 #endif // !(three_way_comparison && concepts)
+
+#if __cplusplus >= 202000
+    template<typename _T>
+    requires __pair_like<_T>
+    pair(_T) -> pair<std::tuple_element_t<0, _T>, std::tuple_element_t<1, _T>>;
+#endif
+
+
 
 #if __cplusplus >= 201103L
   /** Swap overload for pairs. Calls std::pair::swap().

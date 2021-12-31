@@ -40,6 +40,7 @@
 #include <bits/uses_allocator.h>	// for std::allocator_arg_t
 #include <bits/utility.h>		// for std::get, std::tuple_size etc.
 #include <bits/invoke.h>		// for std::__invoke
+#include <bits/stl_algobase.h> // std::min
 #if __cplusplus > 201703L
 # include <compare>
 # define __cpp_lib_constexpr_tuple 201811L
@@ -778,12 +779,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         return false;
       }();
 
-      template <__tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
-      requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...>)
-      explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
-      constexpr	tuple(const _T& __in)
-      noexcept(__all_tuple_elements<is_nothrow_constructible, _T, _Elements...>)
-      : tuple(__tuple_ctr_tag{}, __in, std::make_index_sequence<std::tuple_size_v<_U>>()) {}
+      //template <__tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
+      //requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...>)
+      //explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
+      //constexpr	tuple(const _T& __in)
+      //noexcept(__all_tuple_elements<is_nothrow_constructible, _T, _Elements...>)
+      //: tuple(__tuple_ctr_tag{}, __in, std::make_index_sequence<std::tuple_size_v<_U>>()) {}
 
       template <__tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
       requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...>)
@@ -899,11 +900,11 @@ public:
 
 #if __cplusplus >= 202000
       struct __tuple_ctr_tag_alloc{};
-      template <typename _Alloc, __tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
-      requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...> )
-      explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
-      constexpr	tuple(allocator_arg_t __tag, const _Alloc& __a, const _T& __in)
-      : tuple(__tuple_ctr_tag_alloc{}, __a, __in, std::make_index_sequence<std::tuple_size_v<_U>>()) {}
+      //template <typename _Alloc, __tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
+      //requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...> )
+      //explicit(!__all_tuple_elements<__is_implicitly_constructible_element, _T, _Elements...>)
+      //constexpr	tuple(allocator_arg_t __tag, const _Alloc& __a, const _T& __in)
+      //: tuple(__tuple_ctr_tag_alloc{}, __a, __in, std::make_index_sequence<std::tuple_size_v<_U>>()) {}
 
       template <typename _Alloc, __tuple_like_of_size<sizeof...(_Elements)> _T, typename _U = std::remove_cvref_t<_T>>
       requires  (!__tuple_convertible<_U> && __all_tuple_elements<std::is_constructible, _T, _Elements...>)
@@ -1014,6 +1015,16 @@ public:
 	  this->_M_assign(std::move(__in));
 	  return *this;
 	}
+  #if __cplusplus > 202000
+  template<__tuple_like_of_size<sizeof...(_Elements)> UTuple>
+	requires __all_tuple_elements<std::is_assignable, UTuple, add_lvalue_reference_t<_Elements>...>
+	constexpr tuple& operator=(UTuple&& __in)
+	noexcept(__all_tuple_elements<std::is_nothrow_assignable, UTuple, add_lvalue_reference_t<_Elements>...>)
+	{
+	  *this = tuple{std::forward<UTuple>(__in)};
+	  return *this;
+	}
+  #endif
 
       // tuple swap
       _GLIBCXX20_CONSTEXPR
@@ -1407,6 +1418,17 @@ public:
 	  this->_M_tail(*this)._M_head(*this) = std::forward<_U2>(__in.second);
 	  return *this;
 	}
+
+  #if __cplusplus > 202000
+  template<__tuple_like_of_size<2> UTuple>
+	requires __all_tuple_elements<std::is_assignable, UTuple, add_lvalue_reference_t<_Elements>...>
+	constexpr tuple& operator=(UTuple&& __in)
+	noexcept(__all_tuple_elements<std::is_nothrow_assignable, UTuple, add_lvalue_reference_t<_Elements>...>)
+	{
+	  *this = tuple{std::forward<UTuple>(__in)};
+	  return *this;
+	}
+  #endif
 
       _GLIBCXX20_CONSTEXPR
       void

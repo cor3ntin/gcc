@@ -44,6 +44,7 @@
 #include <bits/range_access.h> // std::begin, std::end etc.
 #include <bits/utility.h>      // std::index_sequence, std::tuple_size
 #include <debug/assertions.h>
+#include <bits/stl_tuple_protocol.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {

@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <concepts>
+#include <bits/utility.h>
 
 
 
@@ -12,8 +13,41 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 #if __cplusplus >= 202000
 
-template <std::size_t, typename T>
-void get(T&&) = delete;
+template <typename, typename>
+struct pair;
+
+template <typename...>
+struct tuple;
+
+template <typename, std::size_t>
+struct array;
+
+template <std::size_t I, typename T, std::size_t S>
+constexpr T&& get(std::array<T, S>&&) noexcept;
+template <std::size_t I, typename T, std::size_t S>
+constexpr T& get(std::array<T, S>&) noexcept;
+template <std::size_t I, typename T, std::size_t S>
+constexpr T const & get(const std::array<T, S>&) noexcept;
+template <std::size_t I, typename T, std::size_t S>
+constexpr T const && get(const std::array<T, S>&&) noexcept;
+
+template <std::size_t I, typename A, typename B>
+constexpr std::tuple_element_t<I, std::pair<A, B>> && get(std::pair<A, B>&&) noexcept;
+template <std::size_t I, typename A, typename B>
+constexpr std::tuple_element_t<I, std::pair<A, B>> & get(std::pair<A, B>&) noexcept;
+template <std::size_t I, typename A, typename B>
+constexpr std::tuple_element_t<I, std::pair<A, B>> const & get(const std::pair<A, B>&) noexcept;
+template <std::size_t I, typename A, typename B>
+constexpr std::tuple_element_t<I, std::pair<A, B>> const && get(const std::pair<A, B>&&) noexcept;
+
+template <std::size_t I, typename... Args>
+constexpr std::tuple_element_t<I, std::tuple<Args...>> && get(std::tuple<Args...>&&) noexcept;
+template <std::size_t I, typename... Args>
+constexpr std::tuple_element_t<I, std::tuple<Args...>> & get(std::tuple<Args...>&) noexcept;
+template <std::size_t I, typename... Args>
+constexpr std::tuple_element_t<I, std::tuple<Args...>> const & get(const std::tuple<Args...>&) noexcept;
+template <std::size_t I, typename... Args>
+constexpr std::tuple_element_t<I, std::tuple<Args...>> const && get(const std::tuple<Args...>&&) noexcept;
 
 template <typename T, std::size_t N>
 constexpr bool __is_tuple_element = requires (T t) {
@@ -30,20 +64,16 @@ class pair;
 template <typename...>
 class tuple;
 
-template <typename>
-constexpr bool __is_standard_tuple_like = false;
+template <typename T>
+constexpr bool __is_standard_tuple_like = __is_tuple_like<T>::value;
 
-template <typename A, typename B>
-constexpr bool __is_standard_tuple_like<std::pair<A, B>> = true;
-
-template <typename... Args>
-constexpr bool __is_standard_tuple_like<std::tuple<Args...>> = true;
-
+template <typename... T>
+constexpr bool __is_standard_tuple_like<tuple<T...>> = true;
 
 template <typename T, typename U = std::remove_cvref_t<T>>
 concept __tuple_like = __is_standard_tuple_like<U> || requires {
-    typename std::tuple_size<U>::type;
-    std::same_as<typename std::tuple_size<U>::type, std::size_t>;
+    typename std::tuple_size<U>::value_type;
+    requires std::same_as<typename std::tuple_size<U>::value_type, std::size_t>;
 } && __is_tuple_element<U, std::tuple_size_v<U>>;
 
 template <typename T, auto N>
@@ -52,9 +82,6 @@ concept __tuple_like_of_size = __tuple_like<T>
 
 template <typename T>
 concept __pair_like = __tuple_like_of_size<T, 2>;
-
-template <typename Source, typename Target>
-using __copy_lvalue_reference_t = std::conditional_t<std::is_lvalue_reference_v<Source>, std::add_lvalue_reference_t<Target>, Target>;
 
 template <template <typename, typename> typename F, typename T, typename... Args>
 constexpr bool __all_tuple_elements = []<std::size_t... I>(std::index_sequence<I...>) {

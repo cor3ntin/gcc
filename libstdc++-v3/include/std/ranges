@@ -3886,25 +3886,14 @@ namespace views::__adaptor
   namespace __detail
   {
     template<typename _Tp, size_t _Nm>
-    concept __has_tuple_element = requires(_Tp __t)
-      {
-	typename tuple_size<_Tp>::type;
-	requires _Nm < tuple_size_v<_Tp>;
-	typename tuple_element_t<_Nm, _Tp>;
-	{ std::get<_Nm>(__t) }
-	  -> convertible_to<const tuple_element_t<_Nm, _Tp>&>;
-      };
-
-    template<typename _Tp, size_t _Nm>
       concept __returnable_element
 	= is_reference_v<_Tp> || move_constructible<tuple_element_t<_Nm, _Tp>>;
   }
 
   template<input_range _Vp, size_t _Nm>
-    requires view<_Vp>
-      && __detail::__has_tuple_element<range_value_t<_Vp>, _Nm>
-      && __detail::__has_tuple_element<remove_reference_t<range_reference_t<_Vp>>,
-				       _Nm>
+    requires view<_Vp> && __tuple_like<range_value_t<_Vp>>
+	  && __tuple_like<remove_reference_t<range_reference_t<_Vp>>>
+	  && (_Nm < std::tuple_size_v<remove_reference_t<range_reference_t<_Vp>>>)
       && __detail::__returnable_element<range_reference_t<_Vp>, _Nm>
     class elements_view : public view_interface<elements_view<_Vp, _Nm>>
     {
